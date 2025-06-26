@@ -1,6 +1,7 @@
 const { EmbedBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
 const config = require('../config.js');
 const { getRolePermissions, isStaffMember } = require('../utils/permissions.js');
+const { detectTicketCategory, prepareTicketName } = require('../utils/ticketUtils.js');
 
 module.exports = {
     name: 'interactionCreate',
@@ -336,15 +337,15 @@ async function handleNotifyMember(interaction) {
     if (interaction.replied || interaction.deferred) return;
     
     const channel = interaction.channel;
+    
+    // Usar a função utilitária para detectar a categoria
+    const { emoji: currentEmoji } = detectTicketCategory(channel.name);
     let channelName = channel.name;
     
     // Remover emoji se presente
-    Object.keys(config.ticketCategories).forEach(category => {
-        const categoryConfig = config.ticketCategories[category];
-        if (channelName.startsWith(categoryConfig.emoji)) {
-            channelName = channelName.substring(categoryConfig.emoji.length);
-        }
-    });
+    if (channelName.startsWith(currentEmoji)) {
+        channelName = channelName.substring(currentEmoji.length);
+    }
     
     const ticketOwner = channelName.split('-')[1];
     const member = interaction.guild.members.cache.find(m => m.user.username === ticketOwner);
@@ -356,38 +357,27 @@ async function handleNotifyMember(interaction) {
         });
     }
 
+    const embed = new EmbedBuilder()
+        .setTitle('🔔 Aviso ao Membro')
+        .setDescription(`${member.user}, você tem uma notificação da equipe no seu ticket.`)
+        .addFields(
+            { name: 'Notificado por', value: interaction.user.toString(), inline: true },
+            { name: 'Canal', value: channel.toString(), inline: true }
+        )
+        .setColor(config.branding.warningColor)
+        .setTimestamp();
+
+    await interaction.reply({ embeds: [embed] });
+    
+    // Enviar notificação direta para o membro
     try {
-        // Enviar mensagem privada para o usuário
         await member.send({
-            embeds: [{
-                title: '🔔 Notificação de Ticket',
-                description: `Você tem uma nova mensagem no seu ticket **${channel.name}** no servidor **${interaction.guild.name}**.`,
-                color: 0x00ff00,
-                fields: [
-                    {
-                        name: '📍 Canal',
-                        value: `<#${channel.id}>`,
-                        inline: true
-                    },
-                    {
-                        name: '👤 Notificado por',
-                        value: `${interaction.user}`,
-                        inline: true
-                    }
-                ],
-                timestamp: new Date().toISOString()
-            }]
+            content: `🔔 **Notificação do Ticket**\n\nVocê tem uma notificação da equipe no seu ticket: ${channel}\n\nAcesse o canal para ver mais detalhes.`
         });
-
-        return interaction.reply({
-            content: `✅ ${member.user.tag} foi notificado sobre o ticket!`,
-            ephemeral: true
-        });
-
     } catch (error) {
         console.error('Erro ao enviar DM:', error);
-        return interaction.reply({
-            content: '❌ Não foi possível enviar a notificação. O usuário pode ter DMs desabilitadas.',
+        await interaction.followUp({
+            content: '⚠️ Não foi possível enviar notificação privada para o usuário.',
             ephemeral: true
         });
     }
@@ -397,16 +387,22 @@ async function handleRenameTicket(interaction) {
     if (interaction.replied || interaction.deferred) return;
     
     const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+    const channel = interaction.channel;
+    const oldName = channel.name;
+    
+    // Detectar a categoria do ticket atual usando a função utilitária
+    const { category: currentCategory, emoji: currentEmoji } = detectTicketCategory(oldName);
 
     const modal = new ModalBuilder()
         .setCustomId('rename_ticket_modal')
-        .setTitle('Renomear Ticket');
+        .setTitle(`Renomear Ticket - ${currentEmoji} ${config.ticketCategories[currentCategory].name}`);
 
     const nameInput = new TextInputBuilder()
         .setCustomId('new_name_input')
         .setLabel('Novo nome do ticket')
         .setStyle(TextInputStyle.Short)
-        .setPlaceholder('Ex: suporte-usuario-problema-resolvido')
+        .setPlaceholder(`Ex: ${currentCategory}-usuario-problema-resolvido`)
+        .setValue(oldName.startsWith(currentEmoji) ? oldName.substring(currentEmoji.length) : oldName)
         .setRequired(true)
         .setMaxLength(100);
 
@@ -544,16 +540,14 @@ async function handleCloseTicketModal(interaction) {
     // Criar transcript HTML antes de fechar
     const transcriptData = await createTranscriptHTML(channel);
 
-    // Extrair informações do ticket
+    // Extrair informações do ticket usando a função utilitária
+    const { category: currentCategory, emoji: currentEmoji } = detectTicketCategory(channel.name);
     let channelName = channel.name;
     
     // Remover emoji se presente
-    Object.keys(config.ticketCategories).forEach(category => {
-        const categoryConfig = config.ticketCategories[category];
-        if (channelName.startsWith(categoryConfig.emoji)) {
-            channelName = channelName.substring(categoryConfig.emoji.length);
-        }
-    });
+    if (channelName.startsWith(currentEmoji)) {
+        channelName = channelName.substring(currentEmoji.length);
+    }
     
     const channelParts = channelName.split('-');
     const ticketOwner = channelParts.length >= 2 ? channelParts[1] : 'Desconhecido';
@@ -570,7 +564,10 @@ async function handleCloseTicketModal(interaction) {
     const embed = new EmbedBuilder()
         .setTitle('🔒 Ticket Será Fechado')
         .setDescription(`Este ticket será fechado em **10 segundos** por ${interaction.user}`)
-        .addFields({ name: 'Motivo', value: reason })
+        .addFields(
+            { name: 'Motivo', value: reason },
+            { name: 'Categoria', value: `${currentEmoji} ${config.ticketCategories[currentCategory].name}`, inline: true }
+        )
         .setColor(config.branding.errorColor)
         .setTimestamp();
 
@@ -633,14 +630,28 @@ async function handleRenameTicketModal(interaction) {
     
     try {
         const oldName = channel.name;
-        await channel.setName(newName);
+        
+        // Detectar a categoria do ticket atual usando a função utilitária
+        const { category: currentCategory, emoji: currentEmoji } = detectTicketCategory(oldName);
+        
+        // Preparar o novo nome mantendo o ícone da categoria
+        let finalNewName = newName;
+        
+        // Se o novo nome não começa com o emoji da categoria, adicionar
+        if (!finalNewName.startsWith(currentEmoji)) {
+            finalNewName = currentEmoji + finalNewName;
+        }
+        
+        // Renomear o canal
+        await channel.setName(finalNewName);
 
         const embed = new EmbedBuilder()
             .setTitle('✏️ Ticket Renomeado')
             .setDescription(`Canal renomeado por ${interaction.user}`)
             .addFields(
                 { name: 'Nome Anterior', value: oldName, inline: true },
-                { name: 'Novo Nome', value: newName, inline: true }
+                { name: 'Novo Nome', value: finalNewName, inline: true },
+                { name: 'Categoria', value: `${currentEmoji} ${config.ticketCategories[currentCategory].name}`, inline: true }
             )
             .setColor(config.branding.infoColor)
             .setTimestamp();

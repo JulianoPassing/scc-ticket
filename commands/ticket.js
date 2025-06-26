@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, PermissionFlagsBits } = require('discord.js');
 const config = require('../config.js');
+const { detectTicketCategory, prepareTicketName } = require('../utils/ticketUtils.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -131,16 +132,14 @@ module.exports = {
         // Criar transcript HTML antes de fechar
         const transcriptData = await this.createTranscriptHTML(channel);
 
-        // Extrair informações do ticket
+        // Extrair informações do ticket usando a função utilitária
+        const { category: currentCategory, emoji: currentEmoji } = detectTicketCategory(channel.name);
         let channelName = channel.name;
         
         // Remover emoji se presente
-        Object.keys(config.ticketCategories).forEach(category => {
-            const categoryConfig = config.ticketCategories[category];
-            if (channelName.startsWith(categoryConfig.emoji)) {
-                channelName = channelName.substring(categoryConfig.emoji.length);
-            }
-        });
+        if (channelName.startsWith(currentEmoji)) {
+            channelName = channelName.substring(currentEmoji.length);
+        }
         
         const channelParts = channelName.split('-');
         const ticketOwner = channelParts.length >= 2 ? channelParts[1] : 'Desconhecido';
@@ -157,7 +156,10 @@ module.exports = {
         const embed = new EmbedBuilder()
             .setTitle('🔒 Ticket Será Fechado')
             .setDescription(`Este ticket será fechado em **10 segundos** por ${interaction.user}`)
-            .addFields({ name: 'Motivo', value: motivo })
+            .addFields(
+                { name: 'Motivo', value: motivo },
+                { name: 'Categoria', value: `${currentEmoji} ${config.ticketCategories[currentCategory].name}`, inline: true }
+            )
             .setColor(config.branding.errorColor)
             .setTimestamp();
 
@@ -414,5 +416,38 @@ module.exports = {
                 }
             }
         }
+    },
+
+    detectTicketCategory(channelName) {
+        let currentCategory = null;
+        let currentEmoji = '';
+        
+        // Verificar se o nome atual começa com algum emoji de categoria
+        for (const [categoryKey, categoryConfig] of Object.entries(config.ticketCategories)) {
+            if (channelName.startsWith(categoryConfig.emoji)) {
+                currentCategory = categoryKey;
+                currentEmoji = categoryConfig.emoji;
+                break;
+            }
+        }
+        
+        // Se não encontrou categoria pelo emoji, tentar pelo padrão de nome
+        if (!currentCategory) {
+            for (const [categoryKey, categoryConfig] of Object.entries(config.ticketCategories)) {
+                if (channelName.startsWith(categoryKey + '-')) {
+                    currentCategory = categoryKey;
+                    currentEmoji = categoryConfig.emoji;
+                    break;
+                }
+            }
+        }
+        
+        // Se ainda não encontrou, usar a primeira categoria como fallback
+        if (!currentCategory) {
+            currentCategory = Object.keys(config.ticketCategories)[0];
+            currentEmoji = config.ticketCategories[currentCategory].emoji;
+        }
+        
+        return { category: currentCategory, emoji: currentEmoji };
     }
 };
