@@ -48,24 +48,25 @@ module.exports = {
 
         const targetChannel = interaction.options.getChannel('canal') || interaction.channel;
 
+        // Montar campos das categorias
+        const categoryFields = Object.entries(config.ticketCategories).map(([key, category]) => ({
+            name: `${category.emoji} ${category.name}`,
+            value: category.description,
+            inline: true
+        }));
+
         // Criar embed do painel
         const embed = new EmbedBuilder()
-            .setTitle('🎫 Sistema de Tickets - StreetCarClub')
+            .setTitle('🎫 Central de Atendimento - StreetCarClub')
             .setDescription(
-                '**Bem-vindo ao sistema de tickets da StreetCarClub!**\n\n' +
-                'Para abrir um ticket, selecione a categoria apropriada no menu abaixo.\n' +
-                'Nossa equipe responderá o mais breve possível, não precisa marcar a equipe.\n\n' +
-                '**Categorias disponíveis:**\n' +
-                '📂 **Suporte** - Suporte técnico e ajuda geral\n' +
-                '🐛 **Reportar Bugs** - Reportar erros e problemas técnicos\n' +
-                '⚠️ **Denúncias** - Reportar infrações e problemas de conduta\n' +
-                '💎 **Doações** - Assuntos relacionados a doações\n' +
-                '🚀 **Boost** - Suporte para membros boosters\n' +
-                '🏠 **Casas** - Questões relacionadas a casas e propriedades'
+                'Bem-vindo à nossa Central de Atendimento!\n\n' +
+                'Abra um ticket para receber suporte personalizado da nossa equipe. Selecione a categoria que melhor se encaixa na sua necessidade no menu abaixo.\n\n' +
+                ':information_source: **Importante:** Evite marcar a equipe. Você será atendido o mais breve possível.'
             )
+            .addFields(categoryFields)
             .setColor(config.branding.primaryColor)
             .setImage(config.branding.logoUrl)
-            .setFooter({ text: config.branding.footer })
+            .setFooter({ text: 'StreetCarClub • Atendimento de Qualidade | ' + config.branding.footer })
             .setTimestamp();
 
         // Criar menu de seleção
