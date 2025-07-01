@@ -675,7 +675,17 @@ async function createTranscriptHTML(channel) {
     try {
         const messages = await channel.messages.fetch({ limit: 100 });
         const sortedMessages = messages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-        
+        const config = require('../config.js');
+        // Detectar categoria e dono
+        const { category: currentCategory, emoji: currentEmoji } = require('../utils/ticketUtils').detectTicketCategory(channel.name);
+        let channelName = channel.name;
+        if (channelName.startsWith(currentEmoji)) {
+            channelName = channelName.substring(currentEmoji.length);
+        }
+        const channelParts = channelName.split('-');
+        const ticketOwner = channelParts.length >= 2 ? channelParts[1] : 'Desconhecido';
+        const categoryName = config.ticketCategories[currentCategory]?.name || 'Desconhecida';
+        const logoUrl = config.branding.logoUrl;
         let html = `
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -686,28 +696,63 @@ async function createTranscriptHTML(channel) {
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #36393f;
-            color: #dcddde;
+            background-color: #23272a;
+            color: #f6f6f7;
             margin: 0;
-            padding: 20px;
+            padding: 0;
         }
         .header {
-            background-color: #2f3136;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+            background: linear-gradient(90deg, #00a7e3 0%, #23272a 100%);
+            padding: 32px 20px 20px 20px;
+            border-radius: 0 0 16px 16px;
             text-align: center;
+            box-shadow: 0 2px 8px #0003;
+        }
+        .header img {
+            width: 80px;
+            border-radius: 16px;
+            margin-bottom: 10px;
         }
         .header h1 {
-            color: #7289da;
-            margin: 0 0 10px 0;
+            color: #fff;
+            margin: 0 0 8px 0;
+            font-size: 2.2em;
+        }
+        .header .info {
+            color: #b9bbbe;
+            font-size: 1em;
+            margin-bottom: 8px;
+        }
+        .ticket-meta {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 24px;
+            margin: 18px 0 0 0;
+        }
+        .ticket-meta .meta {
+            background: #2c2f33;
+            border-radius: 8px;
+            padding: 10px 18px;
+            color: #fff;
+            font-size: 1em;
+            min-width: 180px;
+            box-shadow: 0 1px 4px #0002;
+        }
+        .messages {
+            margin: 32px auto 0 auto;
+            max-width: 900px;
         }
         .message {
-            background-color: #40444b;
-            margin: 10px 0;
-            padding: 15px;
-            border-radius: 8px;
-            border-left: 4px solid #7289da;
+            background-color: #36393f;
+            margin: 12px 0;
+            padding: 18px;
+            border-radius: 10px;
+            border-left: 5px solid #00a7e3;
+            box-shadow: 0 1px 4px #0002;
+        }
+        .bot-message {
+            border-left-color: #faa61a;
         }
         .message-header {
             display: flex;
@@ -716,59 +761,66 @@ async function createTranscriptHTML(channel) {
         }
         .username {
             font-weight: bold;
-            color: #7289da;
-            margin-right: 10px;
+            color: #00a7e3;
+            margin-right: 12px;
         }
         .timestamp {
-            color: #72767d;
-            font-size: 12px;
+            color: #b9bbbe;
+            font-size: 13px;
         }
         .message-content {
-            line-height: 1.4;
+            line-height: 1.6;
             word-wrap: break-word;
+            margin-top: 4px;
         }
         .attachment {
-            background-color: #2f3136;
+            background-color: #23272a;
             padding: 10px;
             margin-top: 10px;
-            border-radius: 4px;
+            border-radius: 6px;
             border-left: 3px solid #faa61a;
         }
         .attachment a {
             color: #00b0f4;
             text-decoration: none;
         }
-        .bot-message {
-            border-left-color: #5865f2;
-        }
         .embed {
-            background-color: #2f3136;
+            background-color: #23272a;
             border-left: 4px solid #5865f2;
             padding: 10px;
             margin-top: 10px;
-            border-radius: 4px;
+            border-radius: 6px;
         }
         .footer {
             text-align: center;
-            margin-top: 30px;
-            color: #72767d;
-            font-size: 12px;
+            margin-top: 40px;
+            color: #b9bbbe;
+            font-size: 1em;
+            padding-bottom: 24px;
+        }
+        .footer strong {
+            color: #00a7e3;
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>📋 Transcript do Ticket</h1>
-        <p><strong>Canal:</strong> ${channel.name}</p>
-        <p><strong>Data de Geração:</strong> ${new Date().toLocaleString('pt-BR')}</p>
-        <p><strong>Total de Mensagens:</strong> ${sortedMessages.size}</p>
+        <img src="${logoUrl}" alt="Logo" />
+        <h1>Transcript do Ticket</h1>
+        <div class="info">Registro completo da conversa deste ticket.</div>
+        <div class="ticket-meta">
+            <div class="meta"><strong>Canal:</strong> ${channel.name}</div>
+            <div class="meta"><strong>Dono:</strong> ${ticketOwner}</div>
+            <div class="meta"><strong>Categoria:</strong> ${currentEmoji} ${categoryName}</div>
+            <div class="meta"><strong>Data de Geração:</strong> ${new Date().toLocaleString('pt-BR')}</div>
+            <div class="meta"><strong>Total de Mensagens:</strong> ${sortedMessages.size}</div>
+        </div>
     </div>
     <div class="messages">`;
 
         for (const message of sortedMessages.values()) {
             const isBot = message.author.bot;
             const messageClass = isBot ? 'message bot-message' : 'message';
-            
             html += `
         <div class="${messageClass}">
             <div class="message-header">
@@ -776,7 +828,6 @@ async function createTranscriptHTML(channel) {
                 <span class="timestamp">${message.createdAt.toLocaleString('pt-BR')}</span>
             </div>
             <div class="message-content">${message.content || '<i>Mensagem sem conteúdo</i>'}</div>`;
-
             if (message.attachments.size > 0) {
                 message.attachments.forEach(attachment => {
                     html += `
@@ -786,7 +837,6 @@ async function createTranscriptHTML(channel) {
             </div>`;
                 });
             }
-
             if (message.embeds.length > 0) {
                 message.embeds.forEach(embed => {
                     html += `
@@ -796,41 +846,34 @@ async function createTranscriptHTML(channel) {
             </div>`;
                 });
             }
-
             html += `
         </div>`;
         }
-
         html += `
     </div>
     <div class="footer">
-        <p>™ Street CarClub © All rights reserved</p>
-        <p>Transcript gerado automaticamente pelo sistema de tickets</p>
+        <strong>StreetCarClub</strong> • Sistema de Tickets<br/>
+        <span>Transcript gerado automaticamente. Para dúvidas, entre em contato com a equipe.</span>
+        <br/><br/>
+        <span style="font-size:0.9em;">${config.branding.footer}</span>
     </div>
 </body>
 </html>`;
-
         // Salvar o HTML em arquivo
         const fs = require('fs');
         const path = require('path');
         const transcriptsDir = path.join(__dirname, '..', 'transcripts');
-        
-        // Criar diretório se não existir
         if (!fs.existsSync(transcriptsDir)) {
             fs.mkdirSync(transcriptsDir, { recursive: true });
         }
-
         const filename = `transcript-${channel.name}-${Date.now()}.html`;
         const filepath = path.join(transcriptsDir, filename);
-        
         fs.writeFileSync(filepath, html, 'utf8');
-        
         return {
             filename: filename,
             filepath: filepath,
             htmlContent: html
         };
-        
     } catch (error) {
         console.error('Erro ao criar transcript HTML:', error);
         return 'Erro ao gerar transcript HTML';
@@ -868,33 +911,30 @@ async function logTicketActivity(guild, action, data) {
 
 async function logTicketActivityWithFile(guild, action, data) {
     if (!config.guild.logChannelId) return;
-
     const logChannel = guild.channels.cache.get(config.guild.logChannelId);
     if (!logChannel) return;
-
     if (action === 'close') {
         const embed = new EmbedBuilder()
             .setTitle('📋 Log de Ticket - Fechado')
+            .setDescription('O ticket foi encerrado e o histórico completo está disponível no arquivo em anexo.')
             .addFields(
                 { name: 'Fechado por', value: `${data.closedBy} (${data.closedBy.tag})`, inline: true },
                 { name: 'Dono do Ticket', value: data.ticketOwner || 'Desconhecido', inline: true },
                 { name: 'Canal', value: data.channelName, inline: true },
-                { name: 'Motivo', value: data.reason, inline: false }
+                { name: 'Motivo', value: data.reason || 'Sem motivo especificado', inline: false }
             )
             .setColor(config.branding.errorColor)
+            .setFooter({ text: 'StreetCarClub • Sistema de Tickets | ' + config.branding.footer })
             .setTimestamp();
-
         try {
             if (data.transcriptData && data.transcriptData.filepath) {
                 const fs = require('fs');
                 const { AttachmentBuilder } = require('discord.js');
-                
-                // Criar attachment do arquivo HTML
                 const attachment = new AttachmentBuilder(data.transcriptData.filepath, {
                     name: data.transcriptData.filename
                 });
-
                 await logChannel.send({
+                    content: '📎 Transcript do ticket encerrado disponível em anexo. Para dúvidas, consulte a equipe.',
                     embeds: [embed],
                     files: [attachment]
                 });
@@ -903,7 +943,6 @@ async function logTicketActivityWithFile(guild, action, data) {
             }
         } catch (error) {
             console.error('Erro ao enviar log com arquivo:', error);
-            // Tentar enviar sem o arquivo em caso de erro
             try {
                 await logChannel.send({ embeds: [embed] });
             } catch (fallbackError) {
