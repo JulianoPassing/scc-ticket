@@ -94,18 +94,22 @@ async function handleTicketCreation(interaction) {
 
         // Criar embed de boas-vindas do ticket
         const welcomeEmbed = new EmbedBuilder()
-            .setTitle(`🎫 Ticket - ${categoryConfig.name}`)
+            .setTitle(`🎫 Ticket Aberto - ${categoryConfig.emoji} ${categoryConfig.name}`)
             .setDescription(
-                `Olá ${user}! Seu ticket foi criado com sucesso.\n\n` +
-                `**Categoria:** ${categoryConfig.emoji} ${categoryConfig.name}\n` +
-                `**Descrição:** ${categoryConfig.description}\n\n` +
-                `Nossa equipe será notificada e responderá em breve.\n\n` +
-                `⏰ **Tempo de resposta:** 72h úteis\n` +
-                `🔧 **Prazo para solução:** Pode variar de acordo com o caso`
+                `Olá ${user}, obrigado por entrar em contato!
+
+` +
+                'Sua solicitação foi registrada e nossa equipe irá te atender o mais breve possível. Acompanhe o status do seu ticket por aqui.'
+            )
+            .addFields(
+                { name: 'Categoria', value: `${categoryConfig.emoji} ${categoryConfig.name}`, inline: true },
+                { name: 'Status', value: '⏳ Aguardando atendimento', inline: true },
+                { name: 'Tempo de Resposta', value: 'Até **72h úteis**', inline: true },
+                { name: 'Descrição', value: categoryConfig.description, inline: false }
             )
             .setColor(config.branding.primaryColor)
-            .setThumbnail(user.displayAvatarURL({ dynamic: true }))
-            .setFooter({ text: config.branding.footer })
+            .setThumbnail(config.branding.logoUrl)
+            .setFooter({ text: 'StreetCarClub • Atendimento de Qualidade | ' + config.branding.footer })
             .setTimestamp();
 
         // Criar painel de controle do ticket
@@ -150,7 +154,7 @@ async function handleTicketCreation(interaction) {
             );
 
         await ticketChannel.send({
-            content: `${user} - Equipe notificada! ${getRoleMentions(guild, categoryConfig.allowedRoles)}`,
+            content: `🔔 ${user} abriu um ticket! Equipe notificada: ${getRoleMentions(guild, categoryConfig.allowedRoles)}`,
             embeds: [welcomeEmbed],
             components: [controlPanel, controlPanel2]
         });
