@@ -37,7 +37,7 @@ module.exports = {
 
 async function handleTicketCreation(interaction) {
     // Defer reply para evitar timeout
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: 64 });
     
     const category = interaction.values[0];
     const categoryConfig = config.ticketCategories[category];
