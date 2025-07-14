@@ -42,7 +42,7 @@ module.exports = {
         if (!interaction.member.permissions.has(PermissionFlagsBits.ManageChannels)) {
             return interaction.reply({
                 content: '❌ Você não tem permissão para criar painéis de tickets.',
-                ephemeral: true
+                flags: 64
             });
         }
 
@@ -91,13 +91,13 @@ module.exports = {
 
             await interaction.reply({
                 content: `✅ Painel de tickets criado com sucesso em ${targetChannel}!`,
-                ephemeral: true
+                flags: 64
             });
         } catch (error) {
             console.error('Erro ao criar painel:', error);
             await interaction.reply({
                 content: '❌ Erro ao criar o painel de tickets. Verifique as permissões do bot.',
-                ephemeral: true
+                flags: 64
             });
         }
     },
@@ -112,7 +112,7 @@ module.exports = {
         if (!isTicket) {
             return interaction.reply({
                 content: '❌ Este comando só pode ser usado em canais de ticket.',
-                ephemeral: true
+                flags: 64
             });
         }
 
@@ -126,7 +126,7 @@ module.exports = {
         if (!hasPermission) {
             return interaction.reply({
                 content: '❌ Você não tem permissão para fechar este ticket.',
-                ephemeral: true
+                flags: 64
             });
         }
 

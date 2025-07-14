@@ -211,7 +211,7 @@ async function handleTicketButtons(interaction) {
         if (!interaction.replied && !interaction.deferred) {
             return interaction.reply({
                 content: '❌ Este painel só funciona em canais de ticket.',
-                ephemeral: true
+                flags: 64
             });
         }
         return;
@@ -232,7 +232,7 @@ async function handleTicketButtons(interaction) {
             if (!interaction.replied && !interaction.deferred) {
                 return interaction.reply({
                     content: '❌ Apenas membros da staff podem usar esta função.',
-                    ephemeral: true
+                    flags: 64
                 });
             }
             return;
@@ -357,7 +357,7 @@ async function handleNotifyMember(interaction) {
     if (!member) {
         return interaction.reply({
             content: '❌ Não foi possível encontrar o usuário deste ticket.',
-            ephemeral: true
+            flags: 64
         });
     }
 
@@ -382,7 +382,7 @@ async function handleNotifyMember(interaction) {
         console.error('Erro ao enviar DM:', error);
         await interaction.followUp({
             content: '⚠️ Não foi possível enviar notificação privada para o usuário.',
-            ephemeral: true
+            flags: 64
         });
     }
 }
@@ -600,7 +600,7 @@ async function handleAddMemberModal(interaction) {
         if (!member) {
             return interaction.reply({
                 content: '❌ Usuário não encontrado no servidor.',
-                ephemeral: true
+                flags: 64
             });
         }
 
@@ -623,7 +623,7 @@ async function handleAddMemberModal(interaction) {
         console.error('Erro ao adicionar membro:', error);
         await interaction.reply({
             content: '❌ Erro ao adicionar o membro. Verifique se o ID está correto.',
-            ephemeral: true
+            flags: 64
         });
     }
 }
@@ -666,7 +666,7 @@ async function handleRenameTicketModal(interaction) {
         console.error('Erro ao renomear canal:', error);
         await interaction.reply({
             content: '❌ Erro ao renomear o ticket. Verifique se o nome é válido.',
-            ephemeral: true
+            flags: 64
         });
     }
 }
