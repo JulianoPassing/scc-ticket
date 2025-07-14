@@ -69,24 +69,24 @@ module.exports = {
             .setFooter({ text: 'StreetCarClub • Atendimento de Qualidade | ' + config.branding.footer })
             .setTimestamp();
 
-        // Criar menu de seleção
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId('ticket_category_select')
-            .setPlaceholder('Selecione a categoria do seu ticket')
-            .addOptions(
-                Object.entries(config.ticketCategories).map(([key, category]) => ({
-                    label: `${category.emoji} ${category.name}`,
-                    description: category.description,
-                    value: key
-                }))
-            );
-
-        const row = new ActionRowBuilder().addComponents(selectMenu);
+        // Criar botões de categoria
+        const { ButtonBuilder, ButtonStyle } = require('discord.js');
+        const buttons = Object.entries(config.ticketCategories).map(([key, category]) =>
+            new ButtonBuilder()
+                .setCustomId(`ticket_category_BUTTON_${key}`)
+                .setLabel(`${category.emoji} ${category.name}`)
+                .setStyle(ButtonStyle.Primary)
+        );
+        // Dividir botões em linhas de até 5
+        const rows = [];
+        for (let i = 0; i < buttons.length; i += 5) {
+            rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+        }
 
         try {
             await targetChannel.send({
                 embeds: [embed],
-                components: [row]
+                components: rows
             });
 
             await interaction.reply({

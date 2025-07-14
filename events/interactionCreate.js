@@ -20,9 +20,13 @@ module.exports = {
                 await handleTicketCreation(interaction);
             }
 
-            // Tratar botões do painel de controle
+            // Tratar botões do painel de controle e de categoria
             else if (interaction.isButton()) {
-                await handleTicketButtons(interaction);
+                if (interaction.customId.startsWith('ticket_category_BUTTON_')) {
+                    await handleTicketCategoryButton(interaction);
+                } else {
+                    await handleTicketButtons(interaction);
+                }
             }
 
             // Tratar modais
@@ -1017,4 +1021,56 @@ async function logTicketActivityWithFile(guild, action, data) {
             }
         }
     }
+}
+
+// Nova função para tratar botões de categoria
+async function handleTicketCategoryButton(interaction) {
+    const category = interaction.customId.replace('ticket_category_BUTTON_', '');
+    const categoryConfig = config.ticketCategories[category];
+    
+    if (!categoryConfig) {
+        return interaction.reply({
+            content: '❌ Categoria inválida selecionada.',
+            flags: 64
+        });
+    }
+
+    const guild = interaction.guild;
+    const user = interaction.user;
+
+    // Verificar se o usuário já tem 2 tickets abertos em QUALQUER categoria
+    const existingTickets = guild.channels.cache.filter(channel => {
+        if (channel.type !== ChannelType.GuildText) return false;
+        for (const [cat, catConfig] of Object.entries(config.ticketCategories)) {
+            if (channel.name === `${catConfig.emoji}${cat}-${user.username}` || 
+                channel.name === `${cat}-${user.username}`) {
+                return true;
+            }
+        }
+        return false;
+    });
+
+    if (existingTickets.size >= 2) {
+        const ticketList = existingTickets.map(channel => channel.toString()).join(', ');
+        return interaction.reply({
+            content: `❌ Você já possui 2 tickets abertos: ${ticketList}\n\nFeche um dos tickets antes de abrir um novo.`,
+            flags: 64
+        });
+    }
+
+    // Criar modal para descrição do ticket
+    const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+    const modal = new ModalBuilder()
+        .setCustomId(`ticket_creation_modal_${category}`)
+        .setTitle(`🎫 Criar Ticket - ${categoryConfig.emoji} ${categoryConfig.name}`);
+    const subjectInput = new TextInputBuilder()
+        .setCustomId('ticket_subject_input')
+        .setLabel('Descreva o assunto com poucas palavras')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('Ex: Problema com login, dúvida sobre doação, reportar bug...')
+        .setRequired(true)
+        .setMaxLength(100);
+    const row = new ActionRowBuilder().addComponents(subjectInput);
+    modal.addComponents(row);
+    await interaction.showModal(modal);
 }
