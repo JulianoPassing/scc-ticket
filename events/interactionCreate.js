@@ -49,8 +49,8 @@ async function handleTicketCreation(interaction) {
     const guild = interaction.guild;
     const user = interaction.user;
 
-    // Verificar se o usuário já tem um ticket aberto em QUALQUER categoria
-    const existingTicket = guild.channels.cache.find(channel => {
+    // Verificar se o usuário já tem 2 tickets abertos em QUALQUER categoria
+    const existingTickets = guild.channels.cache.filter(channel => {
         if (channel.type !== ChannelType.GuildText) return false;
         
         // Verificar por padrão de nome com emoji
@@ -63,9 +63,10 @@ async function handleTicketCreation(interaction) {
         return false;
     });
 
-    if (existingTicket) {
+    if (existingTickets.size >= 2) {
+        const ticketList = existingTickets.map(channel => channel.toString()).join(', ');
         return interaction.reply({
-            content: `❌ Você já possui um ticket aberto: ${existingTicket}`,
+            content: `❌ Você já possui 2 tickets abertos: ${ticketList}\n\nFeche um dos tickets antes de abrir um novo.`,
             flags: 64
         });
     }
