@@ -36,15 +36,13 @@ module.exports = {
 };
 
 async function handleTicketCreation(interaction) {
-    // Defer reply para evitar timeout
-    await interaction.deferReply({ flags: 64 });
-    
     const category = interaction.values[0];
     const categoryConfig = config.ticketCategories[category];
     
     if (!categoryConfig) {
-        return interaction.editReply({
-            content: '❌ Categoria inválida selecionada.'
+        return interaction.reply({
+            content: '❌ Categoria inválida selecionada.',
+            flags: 64
         });
     }
 
@@ -66,116 +64,31 @@ async function handleTicketCreation(interaction) {
     });
 
     if (existingTicket) {
-        return interaction.editReply({
-            content: `❌ Você já possui um ticket aberto: ${existingTicket}`
+        return interaction.reply({
+            content: `❌ Você já possui um ticket aberto: ${existingTicket}`,
+            flags: 64
         });
     }
 
-    try {
-        // Obter categoria específica para este tipo de ticket
-        let ticketCategory = null;
-        if (categoryConfig.categoryId) {
-            ticketCategory = guild.channels.cache.get(categoryConfig.categoryId);
-        }
+    // Criar modal para descrição do ticket
+    const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 
-        // Criar canal do ticket com emoji
-        const ticketChannel = await guild.channels.create({
-            name: `${categoryConfig.emoji}${category}-${user.username}`,
-            type: ChannelType.GuildText,
-            parent: ticketCategory
-        });
+    const modal = new ModalBuilder()
+        .setCustomId(`ticket_creation_modal_${category}`)
+        .setTitle(`🎫 Criar Ticket - ${categoryConfig.emoji} ${categoryConfig.name}`);
 
-        // Garantir que o usuário tenha acesso ao canal
-        await ticketChannel.permissionOverwrites.edit(user, {
-            ViewChannel: true,
-            SendMessages: true,
-            ReadMessageHistory: true
-        });
+    const subjectInput = new TextInputBuilder()
+        .setCustomId('ticket_subject_input')
+        .setLabel('Descreva o assunto com poucas palavras')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('Ex: Problema com login, dúvida sobre doação, reportar bug...')
+        .setRequired(true)
+        .setMaxLength(100);
 
-        // Criar embed de boas-vindas do ticket
-        const welcomeEmbed = new EmbedBuilder()
-            .setTitle(`🎫 Ticket Aberto - ${categoryConfig.emoji} ${categoryConfig.name}`)
-            .setDescription(
-                `Olá ${user}, obrigado por entrar em contato!
+    const row = new ActionRowBuilder().addComponents(subjectInput);
+    modal.addComponents(row);
 
-` +
-                'Sua solicitação foi registrada e nossa equipe irá te atender o mais breve possível. Acompanhe o status do seu ticket por aqui.'
-            )
-            .addFields(
-                { name: 'Categoria', value: `${categoryConfig.emoji} ${categoryConfig.name}`, inline: true },
-                { name: 'Status', value: '⏳ Aguardando atendimento', inline: true },
-                { name: 'Tempo de Resposta', value: 'Até **72h úteis**', inline: true },
-                { name: 'Descrição', value: categoryConfig.description, inline: false }
-            )
-            .setColor(config.branding.primaryColor)
-            .setThumbnail(config.branding.logoUrl)
-            .setFooter({ text: 'StreetCarClub • Atendimento de Qualidade | ' + config.branding.footer })
-            .setTimestamp();
-
-        // Criar painel de controle do ticket
-        const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-        
-        const controlPanel = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId('ticket_close_request')
-                    .setLabel('Fechar Ticket')
-                    .setStyle(ButtonStyle.Primary)
-                    .setEmoji('🔒'),
-                new ButtonBuilder()
-                    .setCustomId('ticket_claim')
-                    .setLabel('Assumir Ticket')
-                    .setStyle(ButtonStyle.Primary)
-                    .setEmoji('✋'),
-                new ButtonBuilder()
-                    .setCustomId('ticket_add_member')
-                    .setLabel('Adicionar Membro')
-                    .setStyle(ButtonStyle.Primary)
-                    .setEmoji('➕')
-            );
-
-        const controlPanel2 = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId('ticket_notify_member')
-                    .setLabel('Avisar Membro')
-                    .setStyle(ButtonStyle.Primary)
-                    .setEmoji('🔔'),
-                new ButtonBuilder()
-                    .setCustomId('ticket_rename')
-                    .setLabel('Renomear Ticket')
-                    .setStyle(ButtonStyle.Primary)
-                    .setEmoji('✏️'),
-                new ButtonBuilder()
-                    .setCustomId('ticket_timer')
-                    .setLabel('Timer 24h')
-                    .setStyle(ButtonStyle.Primary)
-                    .setEmoji('⏰')
-            );
-
-        await ticketChannel.send({
-            content: `🔔 ${user} abriu um ticket! Equipe notificada: ${getRoleMentions(guild, categoryConfig.allowedRoles)}`,
-            embeds: [welcomeEmbed],
-            components: [controlPanel, controlPanel2]
-        });
-
-        // Log do ticket criado
-        await logTicketActivity(guild, 'create', {
-            user: user,
-            category: categoryConfig.name,
-            channel: ticketChannel
-        });
-
-        await interaction.editReply({
-            content: `✅ Seu ticket foi criado com sucesso! ${ticketChannel}`
-        });
-
-    } catch (error) {
-        console.error('Erro ao criar ticket:', error);
-        await interaction.editReply({
-            content: '❌ Erro ao criar o ticket. Tente novamente mais tarde.'
-        });
-    }
+    await interaction.showModal(modal);
 }
 
 function getRoleMentions(guild, allowedRoleNames) {
@@ -519,6 +432,12 @@ async function handleModalSubmit(interaction) {
     
     const { customId } = interaction;
 
+    // Verificar se é um modal de criação de ticket
+    if (customId.startsWith('ticket_creation_modal_')) {
+        await handleTicketCreationModal(interaction);
+        return;
+    }
+
     switch (customId) {
         case 'close_ticket_modal':
             await handleCloseTicketModal(interaction);
@@ -529,6 +448,152 @@ async function handleModalSubmit(interaction) {
         case 'rename_ticket_modal':
             await handleRenameTicketModal(interaction);
             break;
+    }
+}
+
+async function handleTicketCreationModal(interaction) {
+    // Defer reply para evitar timeout
+    await interaction.deferReply({ flags: 64 });
+    
+    const subject = interaction.fields.getTextInputValue('ticket_subject_input');
+    const category = interaction.customId.replace('ticket_creation_modal_', '');
+    const categoryConfig = config.ticketCategories[category];
+    
+    if (!categoryConfig) {
+        return interaction.editReply({
+            content: '❌ Categoria inválida selecionada.'
+        });
+    }
+
+    const guild = interaction.guild;
+    const user = interaction.user;
+
+    // Verificar se o usuário já tem um ticket aberto em QUALQUER categoria
+    const existingTicket = guild.channels.cache.find(channel => {
+        if (channel.type !== ChannelType.GuildText) return false;
+        
+        // Verificar por padrão de nome com emoji
+        for (const [cat, catConfig] of Object.entries(config.ticketCategories)) {
+            if (channel.name === `${catConfig.emoji}${cat}-${user.username}` || 
+                channel.name === `${cat}-${user.username}`) {
+                return true;
+            }
+        }
+        return false;
+    });
+
+    if (existingTicket) {
+        return interaction.editReply({
+            content: `❌ Você já possui um ticket aberto: ${existingTicket}`
+        });
+    }
+
+    try {
+        // Obter categoria específica para este tipo de ticket
+        let ticketCategory = null;
+        if (categoryConfig.categoryId) {
+            ticketCategory = guild.channels.cache.get(categoryConfig.categoryId);
+        }
+
+        // Criar canal do ticket com emoji e assunto
+        const ticketChannel = await guild.channels.create({
+            name: `${categoryConfig.emoji}${category}-${user.username}-${subject.replace(/[^a-zA-Z0-9]/g, '').substring(0, 20)}`,
+            type: ChannelType.GuildText,
+            parent: ticketCategory
+        });
+
+        // Garantir que o usuário tenha acesso ao canal
+        await ticketChannel.permissionOverwrites.edit(user, {
+            ViewChannel: true,
+            SendMessages: true,
+            ReadMessageHistory: true
+        });
+
+        // Criar embed de boas-vindas do ticket
+        const welcomeEmbed = new EmbedBuilder()
+            .setTitle(`🎫 Ticket Aberto - ${categoryConfig.emoji} ${categoryConfig.name}`)
+            .setDescription(
+                `Olá ${user}, obrigado por entrar em contato!
+
+` +
+                'Sua solicitação foi registrada e nossa equipe irá te atender o mais breve possível. Acompanhe o status do seu ticket por aqui.'
+            )
+            .addFields(
+                { name: 'Categoria', value: `${categoryConfig.emoji} ${categoryConfig.name}`, inline: true },
+                { name: 'Status', value: '⏳ Aguardando atendimento', inline: true },
+                { name: 'Tempo de Resposta', value: 'Até **72h úteis**', inline: true },
+                { name: 'Assunto', value: subject, inline: false },
+                { name: 'Descrição', value: categoryConfig.description, inline: false }
+            )
+            .setColor(config.branding.primaryColor)
+            .setThumbnail(config.branding.logoUrl)
+            .setFooter({ text: 'StreetCarClub • Atendimento de Qualidade | ' + config.branding.footer })
+            .setTimestamp();
+
+        // Criar painel de controle do ticket
+        const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+        
+        const controlPanel = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('ticket_close_request')
+                    .setLabel('Fechar Ticket')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('🔒'),
+                new ButtonBuilder()
+                    .setCustomId('ticket_claim')
+                    .setLabel('Assumir Ticket')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('✋'),
+                new ButtonBuilder()
+                    .setCustomId('ticket_add_member')
+                    .setLabel('Adicionar Membro')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('➕')
+            );
+
+        const controlPanel2 = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('ticket_notify_member')
+                    .setLabel('Avisar Membro')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('🔔'),
+                new ButtonBuilder()
+                    .setCustomId('ticket_rename')
+                    .setLabel('Renomear Ticket')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('✏️'),
+                new ButtonBuilder()
+                    .setCustomId('ticket_timer')
+                    .setLabel('Timer 24h')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('⏰')
+            );
+
+        await ticketChannel.send({
+            content: `🔔 ${user} abriu um ticket! Equipe notificada: ${getRoleMentions(guild, categoryConfig.allowedRoles)}`,
+            embeds: [welcomeEmbed],
+            components: [controlPanel, controlPanel2]
+        });
+
+        // Log do ticket criado
+        await logTicketActivity(guild, 'create', {
+            user: user,
+            category: categoryConfig.name,
+            channel: ticketChannel,
+            subject: subject
+        });
+
+        await interaction.editReply({
+            content: `✅ Seu ticket foi criado com sucesso! ${ticketChannel}`
+        });
+
+    } catch (error) {
+        console.error('Erro ao criar ticket:', error);
+        await interaction.editReply({
+            content: '❌ Erro ao criar o ticket. Tente novamente mais tarde.'
+        });
     }
 }
 
