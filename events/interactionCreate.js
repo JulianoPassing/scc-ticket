@@ -495,9 +495,9 @@ async function handleTicketCreationModal(interaction) {
             ticketCategory = guild.channels.cache.get(categoryConfig.categoryId);
         }
 
-        // Criar canal do ticket com emoji e assunto
+        // Criar canal do ticket com emoji
         const ticketChannel = await guild.channels.create({
-            name: `${categoryConfig.emoji}${category}-${user.username}-${subject.replace(/[^a-zA-Z0-9]/g, '').substring(0, 20)}`,
+            name: `${categoryConfig.emoji}${category}-${user.username}`,
             type: ChannelType.GuildText,
             parent: ticketCategory
         });
