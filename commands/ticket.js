@@ -77,10 +77,10 @@ module.exports = {
                 .setLabel(`${category.emoji} ${category.name}`)
                 .setStyle(ButtonStyle.Primary)
         );
-        // Dividir botões em linhas de até 5
+        // Dividir botões em linhas de até 3
         const rows = [];
-        for (let i = 0; i < buttons.length; i += 5) {
-            rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+        for (let i = 0; i < buttons.length; i += 3) {
+            rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 3)));
         }
 
         try {
