@@ -137,12 +137,34 @@ function isTicketChannel(channel) {
         }
     }
     
-    // Fallback: verificar por nome para compatibilidade
-    return Object.keys(config.ticketCategories).some(category => {
+    // Verificar por nome para compatibilidade (incluindo canais renomeados)
+    const hasTicketPattern = Object.keys(config.ticketCategories).some(category => {
         const categoryConfig = config.ticketCategories[category];
         return channel.name.startsWith(`${categoryConfig.emoji}${category}-`) || 
-               channel.name.startsWith(`${category}-`);
+               channel.name.startsWith(`${category}-`) ||
+               channel.name.includes(`-${category}-`) ||
+               channel.name.endsWith(`-${category}`);
     });
+    
+    if (hasTicketPattern) {
+        return true;
+    }
+    
+    // Verificar se o canal contém qualquer emoji de categoria (para canais renomeados)
+    const hasCategoryEmoji = Object.values(config.ticketCategories).some(categoryConfig => {
+        return channel.name.includes(categoryConfig.emoji);
+    });
+    
+    if (hasCategoryEmoji) {
+        return true;
+    }
+    
+    // Verificar se o canal contém o padrão de nome de usuário (formato: categoria-username)
+    const hasUsernamePattern = channel.name.includes('-') && 
+                              channel.name.split('-').length >= 2 &&
+                              channel.name.split('-')[1].length > 0;
+    
+    return hasUsernamePattern;
 }
 
 /**

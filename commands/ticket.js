@@ -142,8 +142,19 @@ module.exports = {
             channelName = channelName.substring(currentEmoji.length);
         }
         
+        // Tentar extrair o nome do usuário de diferentes formas
+        let ticketOwner = 'Desconhecido';
         const channelParts = channelName.split('-');
-        const ticketOwner = channelParts.length >= 2 ? channelParts[1] : 'Desconhecido';
+        
+        if (channelParts.length >= 2) {
+            ticketOwner = channelParts[1];
+        } else if (channelName.includes('-')) {
+            // Se não conseguiu dividir por hífen, tentar extrair o nome de outra forma
+            const lastDashIndex = channelName.lastIndexOf('-');
+            if (lastDashIndex !== -1) {
+                ticketOwner = channelName.substring(lastDashIndex + 1);
+            }
+        }
 
         // Log do fechamento com arquivo
         await this.logTicketActivityWithFile(interaction.guild, 'close', {

@@ -29,6 +29,28 @@ function detectTicketCategory(channelName) {
         }
     }
     
+    // Se ainda não encontrou, verificar se contém o emoji em qualquer lugar do nome
+    if (!currentCategory) {
+        for (const [categoryKey, categoryConfig] of Object.entries(config.ticketCategories)) {
+            if (channelName.includes(categoryConfig.emoji)) {
+                currentCategory = categoryKey;
+                currentEmoji = categoryConfig.emoji;
+                break;
+            }
+        }
+    }
+    
+    // Se ainda não encontrou, verificar se contém a categoria em qualquer lugar do nome
+    if (!currentCategory) {
+        for (const [categoryKey, categoryConfig] of Object.entries(config.ticketCategories)) {
+            if (channelName.includes(categoryKey)) {
+                currentCategory = categoryKey;
+                currentEmoji = categoryConfig.emoji;
+                break;
+            }
+        }
+    }
+    
     // Se ainda não encontrou, usar a primeira categoria como fallback
     if (!currentCategory) {
         currentCategory = Object.keys(config.ticketCategories)[0];

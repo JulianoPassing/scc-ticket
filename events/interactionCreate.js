@@ -125,14 +125,23 @@ async function handleTicketButtons(interaction) {
     const { isTicketChannel } = require('../utils/permissions');
     const isTicket = isTicketChannel(channel);
 
+    // Se não for um canal de ticket, tentar processar mesmo assim para canais renomeados
     if (!isTicket) {
-        if (!interaction.replied && !interaction.deferred) {
-            return interaction.reply({
-                content: '❌ Este painel só funciona em canais de ticket.',
-                flags: 64
-            });
+        // Verificar se o canal tem características de ticket (contém hífen e parece ser um ticket)
+        const hasTicketCharacteristics = channel.name.includes('-') && 
+                                       channel.name.split('-').length >= 2 &&
+                                       channel.name.split('-')[1].length > 0;
+        
+        if (!hasTicketCharacteristics) {
+            if (!interaction.replied && !interaction.deferred) {
+                return interaction.reply({
+                    content: '❌ Este painel só funciona em canais de ticket.',
+                    flags: 64
+                });
+            }
+            return;
         }
-        return;
+        // Se tem características de ticket, continuar o processamento
     }
 
     // Lista de funções que requerem permissão de staff
@@ -269,7 +278,20 @@ async function handleNotifyMember(interaction) {
         channelName = channelName.substring(currentEmoji.length);
     }
     
-    const ticketOwner = channelName.split('-')[1];
+    // Tentar extrair o nome do usuário de diferentes formas
+    let ticketOwner = 'Desconhecido';
+    const channelParts = channelName.split('-');
+    
+    if (channelParts.length >= 2) {
+        ticketOwner = channelParts[1];
+    } else if (channelName.includes('-')) {
+        // Se não conseguiu dividir por hífen, tentar extrair o nome de outra forma
+        const lastDashIndex = channelName.lastIndexOf('-');
+        if (lastDashIndex !== -1) {
+            ticketOwner = channelName.substring(lastDashIndex + 1);
+        }
+    }
+    
     const member = interaction.guild.members.cache.find(m => m.user.username === ticketOwner);
     
     if (!member) {
@@ -624,8 +646,19 @@ async function handleCloseTicketModal(interaction) {
         channelName = channelName.substring(currentEmoji.length);
     }
     
+    // Tentar extrair o nome do usuário de diferentes formas
+    let ticketOwner = 'Desconhecido';
     const channelParts = channelName.split('-');
-    const ticketOwner = channelParts.length >= 2 ? channelParts[1] : 'Desconhecido';
+    
+    if (channelParts.length >= 2) {
+        ticketOwner = channelParts[1];
+    } else if (channelName.includes('-')) {
+        // Se não conseguiu dividir por hífen, tentar extrair o nome de outra forma
+        const lastDashIndex = channelName.lastIndexOf('-');
+        if (lastDashIndex !== -1) {
+            ticketOwner = channelName.substring(lastDashIndex + 1);
+        }
+    }
 
     // Log do fechamento com arquivo
     await logTicketActivityWithFile(interaction.guild, 'close', {
@@ -753,8 +786,21 @@ async function createTranscriptHTML(channel) {
         if (channelName.startsWith(currentEmoji)) {
             channelName = channelName.substring(currentEmoji.length);
         }
+        
+        // Tentar extrair o nome do usuário de diferentes formas
+        let ticketOwner = 'Desconhecido';
         const channelParts = channelName.split('-');
-        const ticketOwner = channelParts.length >= 2 ? channelParts[1] : 'Desconhecido';
+        
+        if (channelParts.length >= 2) {
+            ticketOwner = channelParts[1];
+        } else if (channelName.includes('-')) {
+            // Se não conseguiu dividir por hífen, tentar extrair o nome de outra forma
+            const lastDashIndex = channelName.lastIndexOf('-');
+            if (lastDashIndex !== -1) {
+                ticketOwner = channelName.substring(lastDashIndex + 1);
+            }
+        }
+        
         const categoryName = config.ticketCategories[currentCategory]?.name || 'Desconhecida';
         const logoUrl = config.branding.logoUrl;
         let html = `
